@@ -43,6 +43,12 @@ def dashboard_kpis(doc: WorkbookDoc) -> list[tuple[str, str, str]]:
     if not pairs:
         first = doc.sheets[0]
         pairs = [(first.name, c) for c in first.all_columns if first.is_numeric(c)]
+        for sheet in doc.sheets:
+            for cc in sheet.computed_columns:
+                if cc.name in ("Profit","Profit Margin","Expense Ratio","Net Cash Flow",):
+                 pair = (sheet.name, cc.name)
+                 if pair not in pairs:
+                    pairs.append(pair)
 
     kpis: list[tuple[str, str, str]] = []
     for sheet_name, col in pairs:

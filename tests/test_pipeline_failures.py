@@ -86,3 +86,47 @@ def test_csv_analysis_end_to_end(tmp_path):
         Settings(), MockLLM(), tmp_path)
     assert result.ok, result.issues
     assert result.path.exists()
+
+def test_invalid_plan_is_retried(tmp_path):
+    import json
+    from app.llm import _mock_deck
+
+    class InvalidThenValidLLM:
+        def __init__(self):
+            self.calls = 0
+            self.feedback_received = False
+
+        def complete_json(self, system, user):
+            self.calls += 1
+
+            if self.calls == 1:
+                # Simulate Gemini returning invalid JSON
+                return "This is not JSON"
+
+            # Check that the planner sends feedback
+            self.feedback_received = (
+                "valid JSON" in user
+                or "retry" in user.lower()
+            )
+
+            return json.dumps(
+                _mock_deck(3, "Mercury", "students")
+            )
+
+    fake_llm = InvalidThenValidLLM()
+
+    result = generate_document(
+        GenerationRequest(
+            "Create a 3-slide presentation about Mercury",
+            "pptx"
+        ),
+        Settings(),
+        fake_llm,
+        tmp_path
+    )
+
+    assert fake_llm.calls == 2
+    assert result.ok
+    assert result.path is not None
+    assert result.path.exists()
+

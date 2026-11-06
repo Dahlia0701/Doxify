@@ -33,9 +33,15 @@ class JobService:
             raise InputError("Choose pdf, pptx, xlsx or auto.")
         # A retry with the same key and different content must not silently reuse an unrelated job.
         fingerprint = hashlib.sha256(json.dumps({
-            "prompt": request.prompt.strip(), "fmt": request.fmt,
-            "csv_sha256": hashlib.sha256(request.csv_bytes or b"").hexdigest(),
-            "csv_name": request.csv_name or ""
+            "prompt": request.prompt.strip(),
+            "fmt": request.fmt,
+            "csv_sha256": hashlib.sha256(
+              request.csv_bytes or b""
+            ).hexdigest(),
+            "csv_name": request.csv_name or "",
+            "llm_provider": self.settings.llm_provider,
+            "mock_llm": self.settings.mock_llm,
+            "llm_model": self.settings.llm_model,
         }, sort_keys=True).encode()).hexdigest()
         key = f"{idem_key}:{fingerprint}" if idem_key else fingerprint
         job_id, created = self.store.create(key)

@@ -137,7 +137,7 @@ class ChartSpec(_Strict):
 class WorkbookDoc(_Strict):
     type: Literal["xlsx"] = "xlsx"
     title: str = Field(min_length=1, max_length=120)
-    audience: str = "general business readers"
+    audience: str = "general readers"
     assumptions: list[str] = Field(default_factory=list, max_length=20)
     sheets: list[SheetSpec] = Field(min_length=1, max_length=10)
     charts: list[ChartSpec] = Field(default_factory=list, max_length=10)

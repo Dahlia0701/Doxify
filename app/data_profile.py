@@ -15,7 +15,8 @@ from app.config import Settings
 from app.intent import Intent
 from app.limits import InputError
 from app.schemas import (
-    MAX_ROWS, ChartData, ChartSpec, DeckDoc, PdfDoc, SheetSpec, SeriesData, SlideSpec,
+    MAX_ROWS, ChartData, ChartSpec, ComputedColumn,
+    DeckDoc, PdfDoc, SheetSpec, SeriesData, SlideSpec,
     TableData, WorkbookDoc, is_number_text,
 )
 
@@ -297,13 +298,126 @@ def _title_from(intent: Intent, prof: DataProfile) -> str:
     topic = re.sub(r"\s+", " ", topic).strip()
     return (f"{topic.title()} Analysis" if topic else "Data Analysis Report")[:100]
 
-def build_workbook(prof: DataProfile, intent: Intent) -> WorkbookDoc:
+def build_workbook(prof: DataProfile, intent: Intent, prompt: str = "",) -> WorkbookDoc:
     taken: set[str] = {"dashboard"}
     data_name = _sheet_name("Data", taken)
     sheets: list[SheetSpec] = [
         SheetSpec(name=data_name, columns=list(prof.df.columns),
                   rows=[[_py(v) for v in row] for row in prof.df.itertuples(index=False, name=None)])
     ]
+    
+    data_sheet = sheets[0]
+    text = prompt.lower()
+    #Hard coded some generic financial terms to look for in the prompt to add calculations to the output excel sheet.
+    # Find a column using common alternative names.
+    def find_column(*names):
+        for col in data_sheet.columns:
+            if col.strip().lower() in names:
+                return col
+        return None
+
+    revenue = find_column("revenue", "sales", "income")
+    expenses = find_column(
+        "expenses", "expense", "cost", "costs"
+    )
+
+    cash_in = find_column(
+        "cash inflow", "cash_inflow", "cash in", "inflow"
+    )
+    cash_out = find_column(
+        "cash outflow", "cash_outflow", "cash out", "outflow"
+    )
+
+    wants_margin = bool(
+        re.search(r"\b(profit margin|margin)\b", text)
+    )
+    wants_expense_ratio = bool(
+        re.search(r"\bexpense ratio\b", text)
+    )
+    wants_profit = bool(
+        re.search(r"\bprofit\b", text)
+    )
+    wants_cash_flow = bool(
+        re.search(r"\b(net cash flow|cash flow)\b", text)
+    )
+
+    # Add only calculations whose inputs exist and are numeric.
+    def add_calculation(name, operation, inputs, fmt):
+        if name.lower() in {
+            col.lower() for col in data_sheet.all_columns
+        }:
+            return False
+
+        if not all(
+            col is not None and data_sheet.is_numeric(col)
+            for col in inputs
+        ):
+            return False
+
+        data_sheet.computed_columns.append(
+            ComputedColumn(
+                name=name,
+                formula_type=operation,
+                columns=list(inputs),
+                number_format=fmt,
+            )
+        )
+        data_sheet.totals_row = True
+        return True
+
+    # 1. Profit
+    # Also needed when Profit Margin is requested.
+    if wants_profit or wants_margin:
+        if revenue and expenses:
+            add_calculation(
+                "Profit",
+                "difference",
+                [revenue, expenses],
+                "currency",
+            )
+
+    # 2. Profit Margin
+    if wants_margin and revenue:
+        if "Profit" in data_sheet.all_columns:
+            add_calculation(
+                "Profit Margin",
+                "ratio",
+                ["Profit", revenue],
+                "percent",
+            )
+
+    # 3. Expense Ratio
+    if wants_expense_ratio and revenue and expenses:
+        add_calculation(
+            "Expense Ratio",
+            "ratio",
+            [expenses, revenue],
+            "percent",
+        )
+
+    # 4. Net Cash Flow
+    if wants_cash_flow and cash_in and cash_out:
+        add_calculation(
+            "Net Cash Flow",
+            "difference",
+            [cash_in, cash_out],
+            "currency",
+        )
+
+    # Preserve existing columns and add financial formatting.
+    if data_sheet.computed_columns:
+        financial_columns = [
+            col for col in (
+                revenue, expenses, cash_in, cash_out
+            )
+            if col is not None
+        ]
+        data_sheet.currency_columns = list(
+            dict.fromkeys(
+                data_sheet.currency_columns + financial_columns
+            )
+        )
+
     charts: list[ChartSpec] = []
     summ = summary_by_category(prof)
     if summ is not None:
@@ -427,9 +541,9 @@ def build_pdf(prof: DataProfile, intent: Intent) -> PdfDoc:
                   target_pages=intent.page_count)
 
 
-def build_from_profile(prof: DataProfile, intent: Intent):
+def build_from_profile(prof: DataProfile, intent: Intent, prompt: str = ""):
     if intent.fmt == "xlsx":
-        return build_workbook(prof, intent)
+        return build_workbook(prof, intent,prompt)
     if intent.fmt == "pptx":
         return build_deck(prof, intent)
     return build_pdf(prof, intent)

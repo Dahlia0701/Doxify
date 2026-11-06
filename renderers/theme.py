@@ -1,10 +1,10 @@
 """Shared look for all three formats."""
 
-FONT = "Calibri"
-PRIMARY = "1F3A5F"
-ACCENT = "2E86AB"
-LIGHT = "EAF1F8"
-TEXT = "222222"
+FONT = "Aptos"
+PRIMARY = "263B35"
+ACCENT = "B17A55"
+LIGHT = "F5F1E9"
+TEXT = "292C29"
 WHITE = "FFFFFF"
 
 FORMATS = {

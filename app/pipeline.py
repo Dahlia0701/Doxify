@@ -156,7 +156,7 @@ def generate_document(
     extra: Optional[ValidationResult] = None
     if req.csv_bytes is not None:
         prof = profile_dataframe(load_csv(req.csv_bytes, settings))
-        doc = build_from_profile(prof, intent)
+        doc = build_from_profile(prof, intent,prompt)
         extra = validate_metric_claims(claims_for(prof), prof.metrics)
         
         extra.issues = [i for i in extra.issues if i.code != "prose_unverified"]

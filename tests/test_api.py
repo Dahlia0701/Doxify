@@ -54,3 +54,36 @@ def test_api_endpoints(tmp_path):
         assert file_response.content[:2] == b'PK'
         assert client.get('/jobs/unknown').status_code == 404
         assert client.post('/jobs',data={'prompt':'x','fmt':'xlsx'}).status_code == 400
+
+
+def test_failed_job_cannot_be_downloaded(tmp_path):
+    import pytest
+    from app.llm import LLMError
+
+    class FailingLLM:
+        def complete_json(self, system, user):
+            raise LLMError("Simulated LLM failure")
+
+    svc = JobService(
+        Settings(data_dir=str(tmp_path)),
+        llm=FailingLLM(),
+        executor=ImmediateExecutor()
+    )
+
+    job = svc.submit(
+        GenerationRequest(
+            "Create a PDF about Mercury",
+            "pdf"
+        )
+    )
+
+    saved = svc.status(job["id"])
+
+    assert saved is not None
+    assert saved["status"] == "failed"
+    assert "Simulated LLM failure" in saved["error"]
+    assert saved["path"] is None
+
+    with pytest.raises(ValueError):
+        svc.download(job["id"])
+
