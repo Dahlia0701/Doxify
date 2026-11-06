@@ -1,3 +1,5 @@
+import zipfile
+
 from openpyxl import load_workbook
 
 from validators.xlsx_validator import validate_xlsx
@@ -77,6 +79,39 @@ def test_error_value_is_caught(xlsx_path, doc):
 
 def test_missing_chart_is_critical(xlsx_path, doc):
     wb = load_workbook(xlsx_path)
-    getattr(wb["Dashboard"], "_charts").clear()
+    wb["Dashboard"]._charts = []
     wb.save(xlsx_path)
     assert "chart_missing" in codes(validate_xlsx(xlsx_path, doc))
+
+
+def test_chart_pointing_at_wrong_range_is_caught(xlsx_path, doc):
+    wb = load_workbook(xlsx_path)
+    chart = wb["Dashboard"]._charts[0]
+    chart.series[0].val.numRef.f = "'Monthly Data'!$B$2:$B$4"  # only 3 of 6 months
+    wb.save(xlsx_path)
+    assert "chart_range" in codes(validate_xlsx(xlsx_path, doc))
+
+
+def test_chart_with_wrong_labels_is_caught(xlsx_path, doc):
+    wb = load_workbook(xlsx_path)
+    chart = wb["Dashboard"]._charts[0]
+    cat = chart.series[0].cat
+    (cat.numRef or cat.strRef).f = "'Monthly Data'!$B$2:$B$7"  # numbers instead of months
+    wb.save(xlsx_path)
+    assert "chart_categories" in codes(validate_xlsx(xlsx_path, doc))
+
+
+def test_chart_missing_a_series_is_caught(xlsx_path, doc):
+    wb = load_workbook(xlsx_path)
+    wb["Dashboard"]._charts[0].series.pop()
+    wb.save(xlsx_path)
+    assert "chart_series" in codes(validate_xlsx(xlsx_path, doc))
+
+
+def test_wrong_chart_title_is_only_a_warning(xlsx_path, doc):
+    wb = load_workbook(xlsx_path)
+    wb["Dashboard"]._charts[0].title = "Something else"
+    wb.save(xlsx_path)
+    result = validate_xlsx(xlsx_path, doc)
+    assert not result.critical
+    assert result.status == "completed_with_warnings"

@@ -1,18 +1,22 @@
-"""llm module: defines the LLM interface and implemenatations for gemini and mock llm. 
+﻿"""LLM access: a mock (no key needed) and Google Gemini.
+
+The LLM only ever returns JSON text. It is parsed by Pydantic and never executed.
+The API key comes from settings (.env) and is never logged or put in error messages.
 """
 from __future__ import annotations
 
+import ast
 import json
 import time
 from typing import Callable, Protocol
 
 from app.config import Settings
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"  
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"  # override with LLM_MODEL if unavailable
 
 
 class LLMError(Exception):
-    """Raised when the LLM call fails . Message is user-facing."""
+    """Raised when the LLM call fails or no provider is configured. Message is user-facing."""
 
 
 class LLM(Protocol):
@@ -107,7 +111,7 @@ def _mock_pdf(sections: list[str], title: str, audience: str, target_pages: int 
         low = name.lower()
         blocks: list[dict] = [{"kind": "paragraph", "text": (
             f"This section covers {low} for {title}. It is written for {audience} and states the main points, "
-            "the reasoning behind them and what is needed from the reader.")}]
+            "the reasoning behind them and what is needed from the reader.") }]
         key = next((k for k in tables if k in low), None)
         if key:
             blocks.append({"kind": "table", "table": tables[key]})
@@ -142,8 +146,16 @@ def _extract_json_payload(text: str) -> dict:
             if depth == 0:
                 candidate = text[start : index + 1]
                 try:
-                    return json.loads(candidate)
+                    parsed = json.loads(candidate)
+                    if isinstance(parsed, dict):
+                        return parsed
                 except json.JSONDecodeError:
+                    try:
+                        parsed = ast.literal_eval(candidate)
+                        if isinstance(parsed, dict):
+                            return parsed
+                    except (ValueError, SyntaxError):
+                        pass
                     break
     return {}
 
@@ -154,15 +166,29 @@ def _extract_response_text(response: object) -> str | None:
         return None
     if isinstance(response, str):
         return response
+    if isinstance(response, dict):
+        for key in ("text", "content", "output_text"):
+            value = response.get(key)
+            if isinstance(value, str):
+                return value
+        if "parsed" in response and isinstance(response["parsed"], dict):
+            return json.dumps(response["parsed"])
 
     def _collect_parts(parts: object) -> str | None:
         if not isinstance(parts, list):
             return None
         texts: list[str] = []
         for part in parts:
-            part_text = getattr(part, "text", None)
-            if isinstance(part_text, str):
-                texts.append(part_text)
+            if isinstance(part, str):
+                texts.append(part)
+            else:
+                part_text = getattr(part, "text", None)
+                if isinstance(part_text, str):
+                    texts.append(part_text)
+                elif isinstance(part, dict):
+                    part_value = part.get("text")
+                    if isinstance(part_value, str):
+                        texts.append(part_value)
         return "".join(texts) if texts else None
 
     for attr in ("text", "content", "output_text"):
@@ -188,16 +214,24 @@ def _extract_response_text(response: object) -> str | None:
             text = _collect_parts(getattr(content, "parts", None))
             if text:
                 return text
+            if isinstance(content, dict):
+                content_text = content.get("text")
+                if isinstance(content_text, str):
+                    return content_text
     return None
 
 
 class MockLLM:
-    """it has predefined json and used for devlopment testing
+    """Returns canned JSON. Used for development and tests so nothing costs money.
+
+    - canned=<text>: always returns that text (tests use this to simulate bad output).
+    - canned=None: reads "FORMAT: x" from the system prompt and the requirements JSON from
+      the user prompt, so the mock honours slide counts and requested sections.
     """
 
     def __init__(self, canned: str | None = None, queue: list[str] | None = None):
         self.canned = canned
-        self.queue = list(queue or [])  
+        self.queue = list(queue or [])  # responses returned one by one, then fall back
         self.calls = 0
         self.last_user = ""
 
@@ -229,6 +263,13 @@ class MockLLM:
 
 
 class GeminiLLM:
+    """Google Gemini via the google-genai SDK.
+
+    - One request timeout (from settings) on every call.
+    - Up to `retries` extra attempts with a short wait, then a clear LLMError.
+    - Prompts and keys are never logged. Error text never includes the key.
+    """
+
     def __init__(
         self,
         api_key: str,
@@ -257,33 +298,39 @@ class GeminiLLM:
         self.wait_seconds = wait_seconds
         self._sleep = sleep
 
-    
-def _config(self, system: str):
-    from google.genai import types
+    def _config(self, system: str):
+        try:
+            from google.genai import types
+        except ImportError:
+            # Tests pass a fake client; they should not need the real Gemini SDK.
+            if self._client is not None:
+                return {"system_instruction": system, "response_mime_type": "application/json", "temperature": 0.3}
+            raise
 
-    return types.GenerateContentConfig(
-        system_instruction=system,
-        response_mime_type="application/json",
-        temperature=0.3,
-    )
+        return types.GenerateContentConfig(
+            system_instruction=system,
+            response_mime_type="application/json",
+            temperature=0.3,
+        )
+
     def complete_json(self, system: str, user: str) -> str:
-            last_error = "unknown error"
-            for attempt in range(self.retries + 1):
-                try:
-                    response = self._client.models.generate_content(
-                        model=self.model, contents=user, config=self._config(system)
-                    )
-                    text = _extract_response_text(response)
-                    if text and text.strip():
-                        return text
-                    last_error = "the model returned an empty response"
-                except Exception as exc:  # network, quota, auth, timeout...
-                    last_error = _describe(exc)
-                    if _is_permanent(exc):
-                        break
-                if attempt < self.retries:
-                    self._sleep(self.wait_seconds * (attempt + 1))
-            raise LLMError(f"Gemini request failed: {last_error}")
+        last_error = "unknown error"
+        for attempt in range(self.retries + 1):
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model, contents=user, config=self._config(system)
+                )
+                text = _extract_response_text(response)
+                if text and text.strip():
+                    return text
+                last_error = "the model returned an empty response"
+            except Exception as exc:  # network, quota, auth, timeout...
+                last_error = _describe(exc)
+                if _is_permanent(exc):
+                    break
+            if attempt < self.retries:
+                self._sleep(self.wait_seconds * (attempt + 1))
+        raise LLMError(f"Gemini request failed: {last_error}")
 
 
 def _status_code(exc: Exception) -> int | None:
@@ -308,7 +355,7 @@ def _describe(exc: Exception) -> str:
         return "the request was rejected as invalid."
     if "timeout" in type(exc).__name__.lower() or "timed out" in str(exc).lower():
         return "the request timed out."
-    return f"{type(exc).__name__}"  
+    return f"{type(exc).__name__}"  # type only: messages may contain request details
 
 
 def get_llm(settings: Settings) -> LLM:

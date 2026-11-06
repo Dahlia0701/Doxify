@@ -60,7 +60,7 @@ class JobService:
             log.exception("job %s failed with %s", job_id, type(exc).__name__)
             self.store.fail(job_id, "Generation failed. Please try a simpler request or check the server logs.")
         finally:
-            # Files from unsuccessful jobs are never downloadable.
+            # failed files are not downloaded.
             job = self.store.get(job_id)
             if job and job["status"] == "failed":
                 shutil.rmtree(folder, ignore_errors=True)
@@ -75,7 +75,6 @@ class JobService:
         if job["status"] not in ("completed", "completed_with_warnings"):
             raise ValueError("The file is not ready for download")
         path = Path(job["path"] or "")
-        # Only serve files inside the job's own output folder.
         folder = (self.root / "outputs" / job_id).resolve()
         if not path.is_file() or not path.resolve().is_relative_to(folder):
             raise FileNotFoundError("Generated file is missing")

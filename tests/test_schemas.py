@@ -55,3 +55,36 @@ def test_chart_with_unknown_sheet_rejected(plan_dict):
     plan_dict["charts"][0]["sheet"] = "Ghost"
     with pytest.raises(ValidationError):
         WorkbookDoc.model_validate(plan_dict)
+
+
+def test_computed_column_on_text_columns_rejected(plan_dict):
+    plan_dict["sheets"][0]["computed_columns"][0]["columns"] = ["Month", "Revenue"]
+    with pytest.raises(ValidationError, match="contains text"):
+        WorkbookDoc.model_validate(plan_dict)
+
+
+def test_numbers_stored_as_text_still_count_as_numbers(plan_dict):
+    plan_dict["sheets"][0]["rows"][0] = ["Jan", "120000", "80,000".replace(",", "")]
+    doc = WorkbookDoc.model_validate(plan_dict)
+    assert doc.sheets[0].is_numeric("Revenue")
+
+
+def test_mixed_column_is_not_numeric(plan_dict):
+    plan_dict["sheets"][0]["rows"][1] = ["Feb", "n/a", 85000]
+    plan_dict["sheets"][0]["computed_columns"] = []
+    plan_dict["charts"] = []
+    plan_dict["include_dashboard"] = False
+    doc = WorkbookDoc.model_validate(plan_dict)
+    assert not doc.sheets[0].is_numeric("Revenue")
+    assert doc.sheets[0].is_numeric("Expenses")
+
+
+def test_computed_column_is_numeric_only_if_inputs_are(doc):
+    sheet = doc.sheets[0]
+    assert sheet.is_numeric("Profit") and sheet.is_numeric("Margin")
+
+
+def test_chart_on_text_column_rejected(plan_dict):
+    plan_dict["charts"][0]["value_columns"] = ["Month"]
+    with pytest.raises(ValidationError, match="contains text"):
+        WorkbookDoc.model_validate(plan_dict)

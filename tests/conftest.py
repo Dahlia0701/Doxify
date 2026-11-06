@@ -1,14 +1,13 @@
+""" shared sample data and fixtures for tests """
 import json
-
 import pytest
-
 from app.llm import MOCK_XLSX_PLAN
 from app.schemas import WorkbookDoc
 
 
 @pytest.fixture
 def plan_dict() -> dict:
-    return json.loads(json.dumps(MOCK_XLSX_PLAN))  # deep copy
+    return json.loads(json.dumps(MOCK_XLSX_PLAN)) 
 
 
 @pytest.fixture
