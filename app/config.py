@@ -24,8 +24,10 @@ class Settings:
     max_prompt_chars: int = 4000
     job_timeout_seconds: int = 120
     llm_timeout_seconds: int = 30
+    data_dir: str = "./data"
+    max_repairs: int = 2
+    max_workers: int = 2
     max_output_mb: int = 20
-    max_rows_per_sheet: int = 5000
 
     def __repr__(self) -> str:  # never print the key
         return (
@@ -44,6 +46,8 @@ def load_settings() -> Settings:
         max_prompt_chars=_int("MAX_PROMPT_CHARS", 4000),
         job_timeout_seconds=_int("JOB_TIMEOUT_SECONDS", 120),
         llm_timeout_seconds=_int("LLM_TIMEOUT_SECONDS", 30),
+        data_dir=os.getenv("DOXIFY_DATA_DIR", "./data"),
+        max_repairs=_int("MAX_REPAIRS", 2),
+        max_workers=_int("MAX_WORKERS", 2),
         max_output_mb=_int("MAX_OUTPUT_MB", 20),
-        max_rows_per_sheet=_int("MAX_ROWS_PER_SHEET", 5000),
     )
