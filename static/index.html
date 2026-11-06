@@ -1,7 +1,212 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doxify</title>
-<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:45px auto;padding:0 18px;background:#f5f7fb;color:#17243b}main{background:white;padding:28px;border-radius:14px;box-shadow:0 3px 18px #0001}label{display:block;margin-top:18px;font-weight:600}textarea,select,input{box-sizing:border-box;width:100%;margin-top:6px;padding:11px;border:1px solid #c9d1de;border-radius:7px}textarea{min-height:130px}button{margin-top:22px;padding:12px 24px;background:#2859bc;color:white;border:0;border-radius:7px;cursor:pointer}button:disabled{opacity:.5}#result{white-space:pre-wrap;margin-top:20px}a{display:inline-block;margin-top:12px}a[hidden]{display:none!important}</style></head>
-<body><main><h1>Doxify</h1><p>Generate PDF, PowerPoint or Excel files using a prompt.</p><form id="form"><label>What would you like to create?<textarea name="prompt" required minlength="5" placeholder="Create a 10-slide presentation about quarterly performance"></textarea></label><label>Format<select name="fmt"><option value="auto">Auto detect</option><option value="pdf">PDF</option><option value="pptx">PowerPoint</option><option value="xlsx">Excel</option></select></label><label>Optional CSV file<input name="csv" type="file" accept=".csv,text/csv"></label><button id="submit">Generate</button></form><div id="result" role="status"></div><a id="download" hidden>Download file</a></main>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doxify — Create beautifully</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Bree+Serif&family=Lora:wght@400;500;600;700&display=swap");
+    :root {
+      --creme: #EEE4DA;
+      --sand: #D8C4AC;
+      --pink: #C8A49F;
+      --burgundy: #4D0E13;
+      --ink: #3B2525;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 48px 22px;
+      background: var(--creme);
+      color: var(--ink);
+      font-family: 'Lora', Georgia, serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    main {
+      width: min(100%, 940px);
+      padding: clamp(30px, 6vw, 72px);
+      background: #fffaf6;
+      border: 1px solid rgba(77,14,19,.12);
+      border-radius: 28px;
+      box-shadow: 0 22px 65px rgba(77,14,19,.09);
+      text-align: center;
+    }
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: clamp(13px, 1.8vw, 16px);
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 500;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: #8f6260;
+    }
+    h1 {
+      margin: 0;
+      color: var(--burgundy);
+      font-family: 'Cooper Black', 'Bree Serif', Georgia, serif;
+      font-size: clamp(42px, 7vw, 68px);
+      font-weight: 400;
+      letter-spacing: -.035em;
+      line-height: 1.05;
+    }
+    .subtitle {
+      font-family: 'Lora', Georgia, serif;
+      max-width: 650px;
+      margin: 17px auto 40px;
+      font-size: clamp(16px, 2vw, 19px);
+      font-weight: 400;
+      line-height: 1.6;
+      color: #806967;
+    }
+    form { width: 100%; }
+    label {
+      display: block;
+      text-align: left;
+      color: var(--burgundy);
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: .015em;
+    }
+    textarea, select, input[type="file"] {
+      display: block;
+      width: 100%;
+      margin-top: 11px;
+      font: inherit;
+      color: var(--ink);
+      border: 1px solid #d8bfb8;
+      background: #fffdfa;
+      border-radius: 13px;
+      outline: none;
+    }
+    textarea {
+      min-height: 174px;
+      padding: 20px 22px;
+      resize: vertical;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    textarea::placeholder { color: #a28f8b; }
+    textarea:focus, select:focus, input[type="file"]:focus-visible {
+      border-color: var(--burgundy);
+      box-shadow: 0 0 0 3px rgba(200,164,159,.25);
+    }
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      align-items: end;
+      margin-top: 24px;
+    }
+    select {
+      height: 52px;
+      padding: 0 15px;
+      cursor: pointer;
+    }
+    input[type="file"] {
+      min-height: 52px;
+      padding: 9px;
+      font-size: 12px;
+    }
+    input[type="file"]::file-selector-button {
+      margin-right: 12px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 7px;
+      background: var(--sand);
+      color: var(--burgundy);
+      font-weight: 650;
+      cursor: pointer;
+    }
+    #submit {
+      display: block;
+      min-width: 208px;
+      margin: 34px auto 0;
+      padding: 15px 36px;
+      border: 0;
+      border-radius: 100px;
+      background: var(--burgundy);
+      color: var(--creme);
+      font: inherit;
+      font-weight: 650;
+      font-size: 15px;
+      letter-spacing: .02em;
+      cursor: pointer;
+      transition: transform .18s, background .18s;
+    }
+    #submit:hover:not(:disabled) { background: #70262b; transform: translateY(-2px); }
+    #submit:disabled { opacity: .55; cursor: wait; }
+    #result {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-width: 640px;
+      margin: 25px auto 0;
+      line-height: 1.7;
+      font-size: 13px;
+      color: #73524f;
+    }
+    #result:empty { display: none; }
+    #download {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 13px 25px;
+      border: 1px solid var(--burgundy);
+      border-radius: 100px;
+      background: var(--pink);
+      color: var(--burgundy);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    #download:hover { background: var(--sand); }
+    #download[hidden] { display: none !important; }
+    .footer {
+      margin: 38px 0 0;
+      font-size: 11px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: #ac8d85;
+    }
+    @media (max-width: 600px) {
+      body { padding: 18px 12px; align-items: flex-start; }
+      main { padding: 34px 20px; border-radius: 20px; }
+      .subtitle { margin-bottom: 30px; }
+      .options { grid-template-columns: 1fr; gap: 20px; }
+      textarea { min-height: 160px; }
+      #submit { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Your creative partner</p>
+    <h1>Welcome to Doxify</h1>
+    <p class="subtitle">Turn your ideas into beautifully organized documents.</p>
+    <form id="form">
+      <label for="prompt">What would you like to create?
+        <textarea id="prompt" name="prompt" required minlength="5" placeholder="Describe your document here... e.g. Create a 3-page guide to growing roses."></textarea>
+      </label>
+      <div class="options">
+        <label for="fmt">Format
+          <select id="fmt" name="fmt">
+            <option value="auto">Auto detect</option>
+            <option value="pdf">PDF</option>
+            <option value="pptx">PowerPoint</option>
+            <option value="xlsx">Excel</option>
+          </select>
+        </label>
+        <label for="csv">Optional CSV file
+          <input id="csv" name="csv" type="file" accept=".csv,text/csv">
+        </label>
+      </div>
+      <button id="submit" type="submit">Generate document</button>
+    </form>
+    <div id="result" role="status" aria-live="polite"></div>
+    <a id="download" hidden>Download file</a>
+    <p class="footer">Thoughtfully made with Doxify</p>
+  </main>
 <script>
 const form=document.getElementById('form'),result=document.getElementById('result'),download=document.getElementById('download'),btn=document.getElementById('submit');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
