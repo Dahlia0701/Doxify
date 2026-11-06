@@ -268,20 +268,16 @@ class GeminiLLM:
         self.wait_seconds = wait_seconds
         self._sleep = sleep
 
-    def _config(self, system: str):
-        try:
-            from google.genai import types
-        except ImportError:
-            # Tests pass a fake client; they should not need the real Gemini SDK.
-            if self._client is not None:
-                return {"system_instruction": system, "response_mime_type": "application/json", "temperature": 0.3}
-            raise
+    
+def _config(self, system: str):
+    from google.genai import types
 
-        return types.GenerateContentConfig(
-            system_instruction=system,
-            response_mime_type="application/json",
-            temperature=0.3,
-        )
+    return types.GenerateContentConfig(
+        system_instruction=system,
+        response_mime_type="application/json",
+        temperature=0.3,
+    )
+
 
     def complete_json(self, system: str, user: str) -> str:
         last_error = "unknown error"
