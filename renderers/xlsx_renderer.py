@@ -1,7 +1,4 @@
-"""Builds an .xlsx from a WorkbookDoc. No LLM and no LLM-written formulas here.
-
-`plan_formulas` is the single source of truth for every formula in the file.
-The validator reuses it to detect any formula that should not be there.
+"""creates excel sheets with data, formulas, totals and charts
 """
 from __future__ import annotations
 
@@ -21,30 +18,22 @@ MAX_KPIS = 8
 
 
 def is_numeric_column(sheet: SheetSpec, name: str) -> bool:
-    """Computed columns are numeric. Base columns are numeric if every value is a number."""
-    if name not in sheet.columns:
-        return True
-    idx = sheet.columns.index(name)
-    values = [r[idx] for r in sheet.rows if r[idx] not in (None, "")]
-    if not values:
-        return False
-    for v in values:
-        if isinstance(v, bool):
-            return False
-        if isinstance(v, (int, float)):
-            continue
-        if isinstance(v, str) and isinstance(escape_cell(v), (int, float)):
-            continue
-        return False
-    return True
+    """Kept for readability; the real rule lives in SheetSpec.is_numeric."""
+    return sheet.is_numeric(name)
 
 
 def _col_letter(sheet: SheetSpec, name: str) -> str:
     return get_column_letter(sheet.all_columns.index(name) + 1)
 
 
-def dashboard_kpis(doc: WorkbookDoc) -> list[tuple[str, tuple[str, str]]]:
-    """(label, sheet name + column) pairs shown as KPI totals on the dashboard."""
+def dashboard_kpis(doc: WorkbookDoc) -> list[tuple[str, str, str]]:
+    """KPI tiles for the dashboard: (label, formula, number_format_key).
+
+    Rules (so no KPI is a meaningless sum):
+    - ratio / growth columns -> 'Overall X', taken from the sheet's totals row (skipped if none)
+    - average columns        -> 'Average X'
+    - everything else        -> 'Total X'
+    """
     by_name = {s.name: s for s in doc.sheets}
     pairs: list[tuple[str, str]] = []
     for ch in doc.charts:
@@ -53,16 +42,42 @@ def dashboard_kpis(doc: WorkbookDoc) -> list[tuple[str, tuple[str, str]]]:
                 pairs.append((ch.sheet, col))
     if not pairs:
         first = doc.sheets[0]
-        pairs = [(first.name, c) for c in first.all_columns if is_numeric_column(first, c)]
-    return [
-        (f"Total {col}", (sheet, col))
-        for sheet, col in pairs[:MAX_KPIS]
-        if by_name[sheet].rows
-    ]
+        pairs = [(first.name, c) for c in first.all_columns if first.is_numeric(c)]
+
+    kpis: list[tuple[str, str, str]] = []
+    for sheet_name, col in pairs:
+        sheet = by_name[sheet_name]
+        n = len(sheet.rows)
+        if not n or not sheet.is_numeric(col):
+            continue
+        L = _col_letter(sheet, col)
+        q = quote_sheet(sheet_name)
+        cc = next((c for c in sheet.computed_columns if c.name == col), None)
+        if cc is not None and cc.formula_type == "growth":
+            continue  # no meaningful overall growth from summed input columns
+        if cc is not None and cc.formula_type == "ratio":
+            if not sheet.totals_row:
+                continue
+            kpis.append((f"Overall {col}", f"={q}!{L}{n + 2}", cc.number_format))
+        elif cc is not None and cc.formula_type == "average":
+            kpis.append((f"Average {col}", f"=AVERAGE({q}!{L}2:{L}{n + 1})", cc.number_format))
+        else:
+            fmt = cc.number_format if cc is not None else "number"
+            kpis.append((f"Total {col}", f"=SUM({q}!{L}2:{L}{n + 1})", fmt))
+        if len(kpis) >= MAX_KPIS:
+            break
+    return kpis
 
 
 def plan_formulas(doc: WorkbookDoc) -> dict[tuple[str, str], str]:
-    """Every formula that must exist in the workbook: {(sheet, 'B2'): '=...'}."""
+    """Every formula that must exist in the workbook: {(sheet, 'B2'): '=...'}.
+
+    Totals row rules:
+    - base number columns        -> SUM of the column
+    - computed average columns   -> AVERAGE of the column
+    - other computed columns     -> the same formula applied to the totals row
+      (so Margin total = total Profit / total Revenue, never a sum of percentages)
+    """
     out: dict[tuple[str, str], str] = {}
     for sheet in doc.sheets:
         n = len(sheet.rows)
@@ -73,17 +88,26 @@ def plan_formulas(doc: WorkbookDoc) -> dict[tuple[str, str], str]:
                 refs = [f"{_col_letter(sheet, c)}{r}" for c in cc.columns]
                 out[(sheet.name, f"{letter}{r}")] = build_formula(cc.formula_type, refs)
         if sheet.totals_row and n:
-            for c in sheet.all_columns:
-                if is_numeric_column(sheet, c):
+            total_row = n + 2
+            for c in sheet.columns:
+                if sheet.is_numeric(c):
                     L = _col_letter(sheet, c)
-                    out[(sheet.name, f"{L}{n + 2}")] = f"=SUM({L}2:{L}{n + 1})"
+                    out[(sheet.name, f"{L}{total_row}")] = f"=SUM({L}2:{L}{n + 1})"
+            for k, cc in enumerate(sheet.computed_columns):
+                if not sheet.is_numeric(cc.name):
+                    continue
+                letter = get_column_letter(base + k + 1)
+                if cc.formula_type == "growth":
+                    continue  # avoid misleading totals for growth
+                if cc.formula_type == "average":
+                    formula = f"=AVERAGE({letter}2:{letter}{n + 1})"
+                else:
+                    refs = [f"{_col_letter(sheet, c)}{total_row}" for c in cc.columns]
+                    formula = build_formula(cc.formula_type, refs)
+                out[(sheet.name, f"{letter}{total_row}")] = formula
     if doc.include_dashboard:
-        by_name = {s.name: s for s in doc.sheets}
-        for i, (_, (sheet_name, col)) in enumerate(dashboard_kpis(doc)):
-            sheet = by_name[sheet_name]
-            L = _col_letter(sheet, col)
-            n = len(sheet.rows)
-            out[(DASHBOARD, f"B{4 + i}")] = f"=SUM({quote_sheet(sheet_name)}!{L}2:{L}{n + 1})"
+        for i, (_label, formula, _fmt) in enumerate(dashboard_kpis(doc)):
+            out[(DASHBOARD, f"B{4 + i}")] = formula
     return out
 
 
@@ -172,7 +196,7 @@ def render_xlsx(doc: WorkbookDoc, path: str | Path) -> Path:
     formulas = plan_formulas(doc)
 
     wb = Workbook()
-    wb.remove(wb.worksheets[0])
+    wb.remove(wb.active)
     wb.properties.title = doc.title
     sheets_by_name = {}
     for sheet in doc.sheets:
@@ -187,9 +211,9 @@ def render_xlsx(doc: WorkbookDoc, path: str | Path) -> Path:
         dash["A1"].font = Font(name=theme.FONT, size=16, bold=True, color=theme.PRIMARY)
         dash["A3"].value = "Key totals"
         dash["A3"].font = Font(name=theme.FONT, bold=True)
-        for i, (label, _) in enumerate(dashboard_kpis(doc)):
+        for i, (label, _formula, fmt) in enumerate(dashboard_kpis(doc)):
             _write_value(dash.cell(row=4 + i, column=1), label)
-            dash.cell(row=4 + i, column=2).number_format = theme.FORMATS["number"]
+            dash.cell(row=4 + i, column=2).number_format = theme.FORMATS[fmt]
         for (sname, coord), formula in formulas.items():
             if sname == DASHBOARD:
                 dash[coord].value = formula

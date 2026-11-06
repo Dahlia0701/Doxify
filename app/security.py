@@ -1,4 +1,4 @@
-"""Security helpers: formula allowlist and spreadsheet formula-injection protection."""
+"""Security helpers: formula allow list and spreadsheet formula-injection protection."""
 from __future__ import annotations
 
 import math

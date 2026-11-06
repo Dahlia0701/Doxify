@@ -9,7 +9,6 @@ from app.config import Settings
 
 MAX_PROMPT_MIN_CHARS = 5
 
-
 class InputError(ValueError):
     """The user's input was rejected. The message tells them what to fix."""
 

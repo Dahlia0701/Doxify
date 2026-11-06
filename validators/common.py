@@ -1,7 +1,6 @@
 """Shared validation types.
-
-critical -> the file is unusable or missing required content -> job status 'failed'
-warning  -> file is usable but has a minor unresolved issue   -> 'completed_with_warnings'
+critical -> the file is unusable or missing required content:job status 'failed'
+warning  -> file is usable but has a minor unresolved issue:'completed_with_warnings'
 """
 from __future__ import annotations
 
@@ -17,6 +16,7 @@ class Issue:
     severity: str  # "critical" | "warning"
     code: str
     message: str
+    data: dict = field(default_factory=dict)  
 
     def __str__(self) -> str:
         return f"[{self.severity}] {self.code}: {self.message}"
@@ -26,8 +26,11 @@ class Issue:
 class ValidationResult:
     issues: list[Issue] = field(default_factory=list)
 
-    def add(self, severity: str, code: str, message: str) -> None:
-        self.issues.append(Issue(severity, code, message))
+    def add(self, severity: str, code: str, message: str, data: dict | None = None) -> None:
+        self.issues.append(Issue(severity, code, message, data or {}))
+
+    def extend(self, other: "ValidationResult") -> None:
+        self.issues.extend(other.issues)
 
     @property
     def critical(self) -> list[Issue]:

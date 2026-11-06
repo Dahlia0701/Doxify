@@ -1,8 +1,3 @@
-"""Turns raw LLM text into a validated document plan (the intermediate representation).
-
-The LLM only ever produces JSON text. This module parses it with Pydantic; nothing the
-model writes is executed or evaluated.
-"""
 from __future__ import annotations
 
 import json
