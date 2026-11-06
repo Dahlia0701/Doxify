@@ -126,7 +126,7 @@ def repair(doc: AnyDoc, issues: list[Issue], intent: Intent, attempt: int = 1) -
             new = _repair_workbook(doc, issues, actions)
         else:
             new = _repair_pdf(doc, issues, actions)
-    except Exception:  # a repair must never make things worse: keep the original plan
+    except Exception:  
         return RepairOutcome(doc, [])
     if not actions and any(i.code in RETRY_CODES for i in issues):
         actions.append("The output file was unreadable, so it was generated again.")

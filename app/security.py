@@ -1,7 +1,9 @@
 """Security helpers: formula allowlist and spreadsheet formula-injection protection."""
 from __future__ import annotations
 
-from app.schemas import FORMULA_ARITY
+import math
+
+from app.schemas import FORMULA_ARITY, is_number_text
 
 DANGEROUS_PREFIXES = ("=", "+", "-", "@")
 CONTROL_PREFIXES = ("\t", "\r", "\n")
@@ -20,12 +22,11 @@ def escape_cell(value):
     if not isinstance(value, str):
         return value
     stripped = value.strip()
-    if stripped:
-        try:
-            return float(stripped) if any(c in stripped for c in ".eE") else int(stripped)
-        except ValueError:
-            pass
-    if value.startswith(DANGEROUS_PREFIXES + CONTROL_PREFIXES):
+    if stripped and is_number_text(stripped):
+        number = float(stripped) if any(c in stripped for c in ".eE") else int(stripped)
+        if not (isinstance(number, float) and not math.isfinite(number)):
+            return number
+    if value.startswith(DANGEROUS_PREFIXES + CONTROL_PREFIXES) or value.lstrip().startswith(DANGEROUS_PREFIXES):
         return "'" + value
     return value
 
@@ -53,5 +54,5 @@ def build_formula(formula_type: str, refs: list[str]) -> str:
         return f"={a}-{b}"
     if formula_type == "ratio":
         return f'=IF({b}=0,"",{a}/{b})'
-    # growth: (new - old) / old, with col order (old, new)
+   
     return f'=IF({a}=0,"",({b}-{a})/{a})'

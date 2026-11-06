@@ -48,7 +48,7 @@ class Finding:
 
 @dataclass
 class DataProfile:
-    df: pd.DataFrame  # typed: numeric columns float/int, dates as ISO text, others text
+    df: pd.DataFrame  
     columns: list[ColumnProfile]
     category_column: Optional[str]
     date_column: Optional[str]
@@ -60,9 +60,6 @@ class DataProfile:
     @property
     def rows(self) -> int:
         return len(self.df)
-
-
-# --------------------------------------------------------------------------- loading
 
 def _decode(data: bytes) -> str:
     if b"\x00" in data[:4096]:
@@ -166,8 +163,6 @@ def load_csv(data: bytes, settings: Settings) -> pd.DataFrame:
         typed[name] = converted.astype(object)
     return typed
 
-
-# --------------------------------------------------------------------------- profiling
 
 def _kind(df: pd.DataFrame, name: str) -> str:
     vals = [v for v in df[name] if v is not None]
@@ -276,16 +271,13 @@ def _compute_findings(prof: DataProfile) -> None:
         prof.notes.append(f"{missing:,} empty cells were found; they were left blank and ignored in totals.")
         f.append(Finding("missing_cells", float(missing), f"{missing:,} cells are empty across the dataset."))
 
-
-# --------------------------------------------------------------------------- helpers
-
 def _py(v):
     if v is None or (isinstance(v, float) and math.isnan(v)):
         return None
     if hasattr(v, "item"):
         v = v.item()
     if isinstance(v, float):
-        v = round(v, 6)  # drop floating-point noise from sums (274325.83999999997 -> 274325.84)
+        v = round(v, 6)  
     return v
 
 
@@ -304,9 +296,6 @@ def _title_from(intent: Intent, prof: DataProfile) -> str:
     topic = re.sub(r"\b(?:this|sample)\b|\bdataset\b|\bdata\b", "", topic, flags=re.I).strip()
     topic = re.sub(r"\s+", " ", topic).strip()
     return (f"{topic.title()} Analysis" if topic else "Data Analysis Report")[:100]
-
-
-# --------------------------------------------------------------------------- plan builders
 
 def build_workbook(prof: DataProfile, intent: Intent) -> WorkbookDoc:
     taken: set[str] = {"dashboard"}
@@ -402,9 +391,9 @@ def build_deck(prof: DataProfile, intent: Intent) -> DeckDoc:
     n = intent.slide_count if intent.slide_count_explicit else None
     if n:
         while len(ranked) < n and extras:
-            ranked.insert(-1, (40, extras.pop(0)))  # before the findings/notes slides
+            ranked.insert(-1, (40, extras.pop(0)))  
         while len(ranked) > n and len(ranked) > 1:
-            drop = min(range(1, len(ranked)), key=lambda k: ranked[k][0])  # never the title slide
+            drop = min(range(1, len(ranked)), key=lambda k: ranked[k][0]) 
             ranked.pop(drop)
         if len(ranked) < n:
             notes.append(f"Only {len(ranked)} slides' worth of content could be derived from the data; {n} were requested.")

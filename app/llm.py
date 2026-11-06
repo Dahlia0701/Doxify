@@ -12,7 +12,7 @@ DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
 
 class LLMError(Exception):
-    """Raised when the LLM call fails or no provider is configured. Message is user-facing."""
+    """Raised when the LLM call fails . Message is user-facing."""
 
 
 class LLM(Protocol):
@@ -192,16 +192,12 @@ def _extract_response_text(response: object) -> str | None:
 
 
 class MockLLM:
-    """Returns canned JSON. Used for development and tests so nothing costs money.
-
-    - canned=<text>: always returns that text (tests use this to simulate bad output).
-    - canned=None: reads 'FORMAT: x' from the system prompt and the requirements JSON from
-      the user prompt, so the mock honours slide counts and requested sections.
+    """it has predefined json and used for devlopment testing
     """
 
     def __init__(self, canned: str | None = None, queue: list[str] | None = None):
         self.canned = canned
-        self.queue = list(queue or [])  # responses returned one by one, then fall back
+        self.queue = list(queue or [])  
         self.calls = 0
         self.last_user = ""
 
@@ -233,13 +229,6 @@ class MockLLM:
 
 
 class GeminiLLM:
-    """Google Gemini via the google-genai SDK.
-
-    - One request timeout (from settings) on every call.
-    - Up to `retries` extra attempts with a short wait, then a clear LLMError.
-    - Prompts and keys are never logged. Error text never includes the key.
-    """
-
     def __init__(
         self,
         api_key: str,
@@ -277,26 +266,24 @@ def _config(self, system: str):
         response_mime_type="application/json",
         temperature=0.3,
     )
-
-
     def complete_json(self, system: str, user: str) -> str:
-        last_error = "unknown error"
-        for attempt in range(self.retries + 1):
-            try:
-                response = self._client.models.generate_content(
-                    model=self.model, contents=user, config=self._config(system)
-                )
-                text = _extract_response_text(response)
-                if text and text.strip():
-                    return text
-                last_error = "the model returned an empty response"
-            except Exception as exc:  # network, quota, auth, timeout...
-                last_error = _describe(exc)
-                if _is_permanent(exc):
-                    break
-            if attempt < self.retries:
-                self._sleep(self.wait_seconds * (attempt + 1))
-        raise LLMError(f"Gemini request failed: {last_error}")
+            last_error = "unknown error"
+            for attempt in range(self.retries + 1):
+                try:
+                    response = self._client.models.generate_content(
+                        model=self.model, contents=user, config=self._config(system)
+                    )
+                    text = _extract_response_text(response)
+                    if text and text.strip():
+                        return text
+                    last_error = "the model returned an empty response"
+                except Exception as exc:  # network, quota, auth, timeout...
+                    last_error = _describe(exc)
+                    if _is_permanent(exc):
+                        break
+                if attempt < self.retries:
+                    self._sleep(self.wait_seconds * (attempt + 1))
+            raise LLMError(f"Gemini request failed: {last_error}")
 
 
 def _status_code(exc: Exception) -> int | None:
@@ -321,7 +308,7 @@ def _describe(exc: Exception) -> str:
         return "the request was rejected as invalid."
     if "timeout" in type(exc).__name__.lower() or "timed out" in str(exc).lower():
         return "the request timed out."
-    return f"{type(exc).__name__}"  # type only: messages may contain request details
+    return f"{type(exc).__name__}"  
 
 
 def get_llm(settings: Settings) -> LLM:

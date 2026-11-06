@@ -38,7 +38,7 @@ MEDIA_TYPES = {
     "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
-PLAN_ATTEMPTS = 2  # first try + one retry that tells the model what was wrong
+PLAN_ATTEMPTS = 2  
 
 
 class RenderError(Exception):
@@ -91,7 +91,7 @@ def _validate(doc: AnyDoc, fmt: str, path: Path, intent: Intent, deadline: Deadl
     if fmt == "pdf":
         result = validate_pdf(path, doc, requested_pages=intent.page_count)
     elif fmt == "pptx":
-        result = validate_pptx(path, doc)  # requested slide count is checked on the plan below
+        result = validate_pptx(path, doc)  
     else:
         result = validate_xlsx(path, doc)
         if not result.critical:
@@ -124,7 +124,7 @@ def _plan_with_llm(prompt: str, intent: Intent, llm: LLM, deadline: Deadline) ->
             return doc
         feedback = " ".join(problems)
     if best is not None:
-        return best  # repair() gets a chance to fix what is left
+        return best  
     assert last_error is not None
     raise last_error
 
@@ -158,7 +158,7 @@ def generate_document(
         prof = profile_dataframe(load_csv(req.csv_bytes, settings))
         doc = build_from_profile(prof, intent)
         extra = validate_metric_claims(claims_for(prof), prof.metrics)
-        # prose_unverified is expected for template text built from computed metrics; keep only real disagreements
+        
         extra.issues = [i for i in extra.issues if i.code != "prose_unverified"]
     else:
         doc = _plan_with_llm(prompt, intent, llm, deadline)
@@ -181,14 +181,14 @@ def generate_document(
         on_stage("repairing")
         outcome = repair(doc, result.issues, intent, attempt=attempt + 1)
         if not outcome.changed:
-            break  # nothing more we can safely do; report what is left
+            break  #reporting failure
         doc = outcome.doc
         repairs.extend(outcome.actions)
         out_path = out_dir / f"{_slug(doc.title)}.{EXT[fmt]}"
 
     status = result.status
     if status == "failed":
-        out_path.unlink(missing_ok=True)  # never leave a file that failed validation lying around
+        out_path.unlink(missing_ok=True)  
     issues = [{"severity": i.severity, "code": i.code, "message": i.message} for i in result.issues]
     log.info("job=%s status=%s issues=%d repairs=%d", job_id, status, len(issues), len(repairs))
     return GenerationResult(
