@@ -20,7 +20,7 @@
 
 ## ✨ Overview
 
-**Doxify** is a FastAPI-based prototype built for the **Build an AI-Powered Document Generation Engine** assignment. It interprets natural-language requests, creates a validated document plan, renders a downloadable file, and checks the output before making it available. Optional CSV uploads support data-driven reports and workbooks.
+**Doxify** is a FastAPI-based prototype built for the AI-powered Document generation. It interprets natural-language requests, creates a validated document plan, renders a downloadable file, and checks the output before making it available. Optional CSV uploads support data-driven reports and workbooks.
 
 ### Core capabilities
 
