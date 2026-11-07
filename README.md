@@ -98,7 +98,6 @@ Doxify/
 ├── static/index.html           # Web interface
 ├── tests/                      # Automated and failure-path tests
 ├── samples/                    # Sample CSV inputs
-├── demo/                       # Example generated output
 ├── list_models.py              # Gemini model helper
 ├── test_gemini_connection.py   # Gemini connectivity helper
 ├── data/                       # Local runtime data (not committed)
