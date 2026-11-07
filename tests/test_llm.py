@@ -1,3 +1,4 @@
+""" gemini retries,errors,fake responses and secret-safe settings"""
 import pytest
 
 from app.config import Settings

@@ -1,3 +1,4 @@
+"""Pydantic schemas for the document plans and final documents."""
 from __future__ import annotations
 
 import re

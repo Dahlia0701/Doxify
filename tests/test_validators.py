@@ -1,3 +1,4 @@
+""" missing/corrupt files , altered formulas and charts"""
 import zipfile
 
 from openpyxl import load_workbook

@@ -1,3 +1,4 @@
+""" bad llm responses , timeouts, malformed CSV , crashes , tampered files and mock generation"""
 import pytest
 from app.config import Settings
 from app.limits import Deadline, InputError, JobTimeout

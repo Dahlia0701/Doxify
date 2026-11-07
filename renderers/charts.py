@@ -1,4 +1,4 @@
-"""Chart images for PDFs"""
+"""Chart images used in document rendering"""
 from __future__ import annotations
 
 import io

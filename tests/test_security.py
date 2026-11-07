@@ -1,3 +1,4 @@
+""" formual injection protection and formula allowlist"""
 import pytest
 
 from app.security import SecurityError, build_formula, escape_cell

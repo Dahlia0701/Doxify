@@ -1,3 +1,4 @@
+""" excel generation, formual,totals,charts and dashboards"""
 import shutil
 
 import pandas as pd

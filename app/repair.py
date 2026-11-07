@@ -1,3 +1,4 @@
+""" applies limited corrections to document plans after validation issues"""
 from __future__ import annotations
 
 import re

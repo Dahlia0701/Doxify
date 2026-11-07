@@ -1,7 +1,4 @@
-﻿"""LLM access: a mock (no key needed) and Google Gemini.
-
-The LLM only ever returns JSON text. It is parsed by Pydantic and never executed.
-The API key comes from settings (.env) and is never logged or put in error messages.
+﻿"""defines a common llm interface , mock implementation , gemini implemenation and retries
 """
 from __future__ import annotations
 

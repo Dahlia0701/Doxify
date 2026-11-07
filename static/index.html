@@ -210,5 +210,100 @@
 <script>
 const form=document.getElementById('form'),result=document.getElementById('result'),download=document.getElementById('download'),btn=document.getElementById('submit');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-form.addEventListener('submit',async event=>{event.preventDefault();btn.disabled=true;download.hidden=true;result.textContent='Submitting...';const data=new FormData(form);if(!data.get('csv')?.size)data.delete('csv');try{const response=await fetch('/jobs',{method:'POST',body:data});const job=await response.json();if(!response.ok)throw Error(job.detail||'Could not submit job');for(let i=0;i<120;i++){const r=await fetch('/jobs/'+job.id);const status=await r.json();result.textContent='Status: '+status.status+(status.error?'\n'+status.error:'')+(status.issues?.length?'\nIssues: '+JSON.stringify(status.issues,null,2):'');if(['completed','completed_with_warnings','failed'].includes(status.status)){if(status.status!=='failed'){download.href='/jobs/'+job.id+'/download';download.hidden=false;download.textContent='Download '+(status.fmt||'file').toUpperCase();}return;}await sleep(1000);}result.textContent='Still processing. Please refresh the job status later.';}catch(err){result.textContent=err.message;}finally{btn.disabled=false;}});
+
+function friendlyError(error) {
+    const message = String(error || "");
+
+    if (
+        message.includes("generated plan is invalid") ||
+        message.includes("validation error")
+    ) {
+        return "We couldn't organize the document correctly. Please try again with a clearer prompt.";
+    }
+
+    if (
+        message.includes("ServerError") ||
+        message.includes("503") ||
+        message.includes("UNAVAILABLE")
+    ) {
+        return "The AI service is temporarily busy. Please try again in a few minutes.";
+    }
+
+    if (
+        message.includes("timeout") ||
+        message.includes("timed out")
+    ) {
+        return "Generation took too long. Please try a smaller document.";
+    }
+
+    return "We couldn't generate your document. Please try again.";
+}
+
+form.addEventListener('submit', async event => {
+    event.preventDefault();
+
+    btn.disabled = true;
+    download.hidden = true;
+    result.textContent = 'Submitting...';
+
+    const data = new FormData(form);
+
+    if (!data.get('csv')?.size) {
+        data.delete('csv');
+    }
+
+    try {
+        const response = await fetch('/jobs', {
+            method: 'POST',
+            body: data
+        });
+
+        const job = await response.json();
+
+        if (!response.ok) {
+            throw Error(job.detail || 'Could not submit job');
+        }
+
+        for (let i = 0; i < 120; i++) {
+            const r = await fetch('/jobs/' + job.id);
+            const status = await r.json();
+
+            // Show user-friendly errors instead of technical errors
+            result.textContent =
+                'Status: ' + status.status +
+                (status.error
+                    ? '\n' + friendlyError(status.error)
+                    : '') +
+                (status.issues?.length
+                    ? '\nIssues: ' + JSON.stringify(status.issues, null, 2)
+                    : '');
+
+            if (
+                ['completed', 'completed_with_warnings', 'failed']
+                    .includes(status.status)
+            ) {
+                if (status.status !== 'failed') {
+                    download.href = '/jobs/' + job.id + '/download';
+                    download.hidden = false;
+                    download.textContent =
+                        'Download ' + (status.fmt || 'file').toUpperCase();
+                }
+
+                return;
+            }
+
+            await sleep(1000);
+        }
+
+        result.textContent =
+            'Still processing. Please refresh the job status later.';
+
+    } catch (err) {
+        result.textContent = friendlyError(err.message);
+
+    } finally {
+        btn.disabled = false;
+    }
+});
+
 </script></body></html>

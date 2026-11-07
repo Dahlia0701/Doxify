@@ -1,4 +1,4 @@
-
+""" checking models that are available during development and testing"""
 import os
 from dotenv import load_dotenv
 from google import genai

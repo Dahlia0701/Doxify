@@ -1,4 +1,5 @@
 """The generation pipeline: prompt -> intent -> plan (IR) -> render -> validate -> bounded repair.
+coordinates all the work
 """
 from __future__ import annotations
 

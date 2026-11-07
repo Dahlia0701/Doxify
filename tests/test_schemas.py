@@ -1,3 +1,4 @@
+""" reject malformed or unsafe document plans"""
 import json
 
 import pytest

@@ -1,3 +1,4 @@
+""" FASTAPI endpoints and browser entry point"""
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile

@@ -30,13 +30,13 @@ _NUM = r"(\d{1,4}|" + "|".join(_NUMBER_WORDS) + r")"
 _AUDIENCES = [
     "senior leadership", "executives", "executive team", "board members", "the board", "investors",
     "customers", "clients", "students", "engineers", "managers", "finance team", "sales team",
-    "marketing team", "stakeholders", "beginners", "leadership",
+    "marketing team", "stakeholders", "beginners", "leadership","childrens"
 ]
 _BAD_AUDIENCE_WORDS = {"me", "you", "it", "us", "him", "her", "them", "this", "that", "my", "myself"}
 
 DEFAULT_AUDIENCE = {
-    "pptx": "business stakeholders",
-    "pdf": "business readers",
+    "pptx": "general readers",
+    "pdf": "general audience",
     "xlsx": "general business readers",
 }
 

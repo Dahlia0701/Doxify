@@ -1,3 +1,4 @@
+""" parses model JSON and validates it agaianst a document schema """
 from __future__ import annotations
 
 import json
